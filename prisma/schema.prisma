@@ -1,0 +1,182 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Casal - relacionamento entre dois usuários
+model Couple {
+  id            String   @id @default(cuid())
+  name          String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  members       User[]
+  transactions  Transaction[]
+  categories    Category[]
+  goals         Goal[]
+  budgets       Budget[]
+  investments   Investment[]
+  invites       Invite[]
+}
+
+// Usuário do sistema
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  avatar    String?
+  color     String   @default("#ec4899")
+  coupleId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  couple            Couple?             @relation(fields: [coupleId], references: [id])
+  transactions      Transaction[]
+  investments       Investment[]
+  dividends         Dividend[]
+  sentInvites       Invite[]            @relation("SentInvites")
+}
+
+// Convite para fazer parte da família
+model Invite {
+  id            String    @id @default(cuid())
+  email         String?
+  token         String    @unique
+  status        String    @default("pending")
+  expiresAt     DateTime
+  coupleId      String
+  invitedBy     String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  couple      Couple   @relation(fields: [coupleId], references: [id])
+  inviter     User     @relation("SentInvites", fields: [invitedBy], references: [id])
+}
+
+// Categoria de gastos
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  icon        String   @default("wallet")
+  color       String   @default("#6366f1")
+  type        String   @default("expense")
+  coupleId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  couple        Couple         @relation(fields: [coupleId], references: [id])
+  transactions  Transaction[]
+  budgets       Budget[]
+  
+  @@unique([coupleId, name])
+}
+
+// Transação (receita ou despesa)
+model Transaction {
+  id           String   @id @default(cuid())
+  description  String
+  amount       Float
+  type         String
+  date         DateTime @default(now())
+  isRecurring  Boolean  @default(false)
+  recurrence   String?
+  notes        String?
+  coupleId     String
+  categoryId   String
+  userId       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  couple       Couple    @relation(fields: [coupleId], references: [id])
+  category     Category  @relation(fields: [categoryId], references: [id])
+  user         User      @relation(fields: [userId], references: [id])
+}
+
+// Meta financeira do casal
+model Goal {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  targetAmount  Float
+  currentAmount Float    @default(0)
+  targetDate    DateTime?
+  icon          String   @default("target")
+  color         String   @default("#22c55e")
+  status        String   @default("active")
+  coupleId      String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  couple        Couple   @relation(fields: [coupleId], references: [id])
+}
+
+// Orçamento mensal por categoria
+model Budget {
+  id          String   @id @default(cuid())
+  amount      Float
+  month       Int
+  year        Int
+  categoryId  String
+  coupleId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  couple      Couple    @relation(fields: [coupleId], references: [id])
+  category    Category  @relation(fields: [categoryId], references: [id])
+  
+  @@unique([coupleId, categoryId, month, year])
+}
+
+// Investimento
+model Investment {
+  id              String   @id @default(cuid())
+  ticker          String
+  name            String
+  type            String
+  sector          String?
+  quantity        Float
+  averagePrice    Float
+  currentPrice    Float
+  investedAmount  Float
+  currentAmount   Float
+  profit          Float    @default(0)
+  profitPercent   Float    @default(0)
+  userId          String
+  coupleId        String
+  broker          String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user            User      @relation(fields: [userId], references: [id])
+  couple          Couple    @relation(fields: [coupleId], references: [id])
+  dividends       Dividend[]
+  
+  @@unique([coupleId, ticker, userId])
+}
+
+// Dividendos recebidos
+model Dividend {
+  id             String   @id @default(cuid())
+  investmentId   String
+  amount         Float
+  totalAmount    Float
+  quantity       Float
+  exDate         DateTime
+  paymentDate    DateTime
+  type           String   @default("dividend")
+  userId         String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  investment     Investment @relation(fields: [investmentId], references: [id])
+  user           User       @relation(fields: [userId], references: [id])
+}
